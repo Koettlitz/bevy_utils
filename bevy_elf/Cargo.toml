@@ -11,13 +11,14 @@ categories = ["game-development"]
 
 [features]
 default = ["macros", "math", "app"]
-app = ["dep:bevy_app"]
 macros = ["dep:bevy_elf_macros"]
-math = ["dep:bevy_math"]
-image = ["dep:bevy_image"]
+app = ["dep:bevy_app", "bevy_elf_core/app"]
+math = ["dep:bevy_math", "bevy_elf_core/math"]
+image = ["dep:bevy_image", "bevy_elf_core/image"]
 
 [dependencies]
 bevy_elf_macros = { optional = true, path = "../bevy_elf_macros"}
+bevy_elf_core = { path = "../bevy_elf_core" }
 bevy_asset = { workspace = true } 
 bevy_app = { workspace = true, optional = true }
 bevy_reflect = { workspace = true }

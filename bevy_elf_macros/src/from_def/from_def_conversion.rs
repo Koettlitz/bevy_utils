@@ -1,3 +1,5 @@
+use std::borrow::Cow;
+
 use elf_macro_utils::{FieldTransform, generate_transform};
 use proc_macro2::{Span, TokenStream};
 use quote::{ToTokens, quote};
@@ -60,12 +62,14 @@ fn process_field(
     ctx: &FromDefImplContext,
 ) -> Result<FieldTransform, syn::Error> {
     let elf_attr = FieldElfAttr::from_attrs(&field.attrs)?;
-    let resolver_expr = if let Some(field_spec) = elf_attr.as_ref().and_then(|a| a.spec.as_ref()) {
-        Some(generate_resolver_from(&field.ty, field_spec, ctx)?)
+    let resolver_code = if let Some(field_spec) = elf_attr.as_ref().and_then(|a| a.spec.as_ref()) {
+        Some(generate_resolver_code(&field.ty, field_spec, ctx)?)
     } else {
-        elf_attr
-            .as_ref()
-            .and_then(|a| a.resolver.as_ref().map(|r| r.to_token_stream()))
+        elf_attr.as_ref().and_then(|a| {
+            a.resolver
+                .as_ref()
+                .map(|r| ResolverCode::new(r.to_token_stream()))
+        })
     };
 
     Ok(FieldTransform {
@@ -77,14 +81,14 @@ fn process_field(
         conversion_expr: generate_field_conversion(
             field,
             elf_attr.as_ref(),
-            resolver_expr.as_ref(),
+            resolver_code.as_ref().map(|r| &r.resolver_expr),
             field_access,
             ctx,
         )?,
         extra_items: elf_attr
             .and_then(|elf| {
                 elf.expose_resolver.then(|| {
-                    generate_resolver_access(field, resolver_expr.as_ref(), artificial_field_ident)
+                    generate_resolver_access(field, resolver_code.as_ref(), artificial_field_ident)
                 })
             })
             .transpose()?
@@ -146,49 +150,56 @@ fn generate_field_conversion(
 
 fn generate_resolver_access(
     field: &Field,
-    resolver_expr: Option<&TokenStream>,
+    resolver_code: Option<&ResolverCode>,
     artificial_field_ident: &Ident,
 ) -> Result<TokenStream, syn::Error> {
     let asset_module = CratePath::try_from(ELF_MODULE_PATH)?;
-    let resolver_expr = if let Some(resolver_expr) = resolver_expr {
-        resolver_expr
+
+    let (param, resolver_expr) = if let Some(resolver_code) = resolver_code {
+        if let Some(ref resolver_fn_data) = resolver_code.resolver_fn_data {
+            (
+                Some(Cow::Borrowed(&resolver_fn_data.param)),
+                Cow::Borrowed(&resolver_fn_data.resolver_expr),
+            )
+        } else {
+            (None, Cow::Borrowed(&resolver_code.resolver_expr))
+        }
     } else {
         let asset_type = extract_asset_type(&field.ty).ok_or_else(|| syn::Error::new(
                 field.ty.span(),
                 "cannot `expose_resolver` for non-asset field - field must be of a type that contains a Handle",
             ))?;
-        &quote! {
+        let resolver_expr = quote! {
             <#asset_type as #asset_module::HasResolver>::resolver()
-        }
+        };
+        (None, Cow::Owned(resolver_expr))
     };
 
     let fn_name = generate_resolver_fn_name(artificial_field_ident);
+
     Ok(quote! {
-        pub fn #fn_name() -> impl #asset_module::AssetResolver {
+        pub fn #fn_name(#param) -> impl #asset_module::AssetResolver + 'static {
             #resolver_expr
         }
     })
 }
 
-fn generate_resolver_from(
+fn generate_resolver_code(
     field_type: &syn::Type,
     spec: &FieldSpec,
     ctx: &FromDefImplContext,
-) -> syn::Result<TokenStream> {
+) -> syn::Result<ResolverCode> {
     let asset_module = CratePath::try_from(ELF_MODULE_PATH)?;
-    let provider_expr = match &spec.path_kind {
+
+    let resolver_expr = match &spec.path_kind {
         PathKind::Root(base_path) => {
-            let extension = if let Some(extension) = spec.extension.as_ref() {
-                quote!(Some(#extension))
-            } else {
-                quote!(None)
-            };
-            quote! {
+            let strategy = &spec.strategy;
+            ResolverCode::new(quote! {
                 #asset_module::DynamicPathResolver {
                     base_path: #base_path.to_string(),
-                    extension: #extension,
+                    resolve_strategy: #strategy,
                 }
-            }
+            })
         }
         PathKind::Child(sub_path) => {
             let asset_type = extract_asset_type(field_type).ok_or_else(|| {
@@ -198,38 +209,66 @@ fn generate_resolver_from(
                         .to_owned(),
                 )
             })?;
-            let (sub_path, extension) = sub_path
+
+            let (sub_path, strategy) = sub_path
                 .as_ref()
-                .map(|p| {
-                    let extension = if let Some(extension) = spec.extension.as_ref() {
-                        quote!(Some(#extension))
-                    } else {
-                        quote!(None)
-                    };
-                    (p.to_token_stream(), extension)
-                })
+                .map(|p| (p.to_token_stream(), spec.strategy.to_token_stream()))
                 .unwrap_or_else(|| {
                     (
                         quote! {
                             <#asset_type as #asset_module::HasSpecProvider>::provider().base_path()
                         },
                         quote! {
-                            <#asset_type as #asset_module::HasSpecProvider>::provider().extension()
+                            <#asset_type as #asset_module::HasSpecProvider>::provider().resolver_strategy()
                         },
                     )
                 });
+
             let ctx_var_ident = &ctx.load_context_var_ident;
-            quote! {
-                #asset_module::DynamicPathResolver::resolve_sub_path(
-                    #ctx_var_ident,
-                    #sub_path,
-                    #extension
-                )?
+            let base_path_ident = Ident::new("base_path", Span::call_site());
+
+            ResolverCode {
+                resolver_expr: quote! {
+                    #asset_module::DynamicPathResolver::resolve_sub_path_from_load_context(
+                        #ctx_var_ident,
+                        #sub_path,
+                        #strategy,
+                    )?
+                },
+                resolver_fn_data: Some(ResolverFnData {
+                    param: quote!(#base_path_ident: &str),
+                    resolver_expr: quote! {
+                        #asset_module::DynamicPathResolver::resolve_sub_path(
+                            #base_path_ident,
+                            #sub_path,
+                            #strategy
+                        )
+                    },
+                }),
             }
         }
     };
 
-    Ok(provider_expr)
+    Ok(resolver_expr)
+}
+
+struct ResolverCode {
+    resolver_expr: TokenStream,
+    resolver_fn_data: Option<ResolverFnData>,
+}
+
+struct ResolverFnData {
+    param: TokenStream,
+    resolver_expr: TokenStream,
+}
+
+impl ResolverCode {
+    fn new(resolver_expr: TokenStream) -> Self {
+        Self {
+            resolver_expr,
+            resolver_fn_data: None,
+        }
+    }
 }
 
 fn extract_asset_type(field_type: &syn::Type) -> Option<&syn::Type> {

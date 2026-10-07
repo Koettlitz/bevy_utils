@@ -49,31 +49,27 @@ pub fn asset_spec(attr: TokenStream, item: TokenStream) -> TokenStream {
             .into();
         }
     };
-    let asset_module = match CratePath::try_from(ELF_MODULE_PATH) {
+    let elf_module = match CratePath::try_from(ELF_MODULE_PATH) {
         Ok(asset_module) => asset_module,
         Err(e) => return e.to_compile_error().into(),
     };
     let args = parse_macro_input!(attr as SpecArgs);
     let base_path = &args.base_path;
-    let extension = args
-        .extension
-        .as_ref()
-        .map(|e| quote!(Some(#e)))
-        .unwrap_or_else(|| quote!(None));
+    let strategy = args.strategy;
 
     quote! {
         #item
 
-        impl #asset_module::AssetPathSpec for #type_ident {
+        impl #elf_module::AssetPathSpec for #type_ident {
             const BASE_PATH: &'static str = #base_path;
-            const EXTENSION: Option<&'static str> = #extension;
+            const RESOLVE_STRATEGY: #elf_module::ResolveStrategy = #strategy;
         }
 
-        impl #asset_module::HasResolver for #type_ident {
-            type Resolver = #asset_module::ResolverSpec<Self>;
+        impl #elf_module::HasResolver for #type_ident {
+            type Resolver = #elf_module::ResolverSpec<Self>;
 
             fn resolver() -> Self::Resolver {
-                #asset_module::ResolverSpec::<Self>::default()
+                #elf_module::ResolverSpec::<Self>::default()
             }
         }
     }

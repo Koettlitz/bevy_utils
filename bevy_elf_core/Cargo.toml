@@ -1,0 +1,20 @@
+[package]
+name = "bevy_elf_core"
+version = "0.1.0"
+edition = "2024"
+
+[features]
+default = ["math", "app"]
+app = ["dep:bevy_app"]
+math = ["dep:bevy_math"]
+image = ["dep:bevy_image"]
+
+[dependencies]
+bevy_asset = { workspace = true } 
+bevy_reflect = { workspace = true }
+bevy_app = { workspace = true, optional = true }
+bevy_math = { workspace = true, optional = true, features = ["serialize"] }
+bevy_image = { workspace = true, optional = true, features = ["serialize"] }
+serde = { workspace = true }
+ron = { workspace = true }
+thiserror = { workspace = true }

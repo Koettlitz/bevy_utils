@@ -31,9 +31,9 @@ pub struct TransformResult {
 /// Generates the body of a conversion function that turns a source value
 /// into a target value with the same struct/enum shape.
 ///
-/// - `pattern_type` is the type path used to match source enum variants
+/// - `source_type` is the type path used to match source enum variants
 ///   (e.g. `FooDef` for `FooDef::Variant(..) => ..`); unused for structs.
-/// - `construct_type` is the type path used to construct the result
+/// - `target_type` is the type path used to construct the result
 ///   (`Self` in one direction, a separately named mirror type in the other).
 /// - `source_var` is the expression holding the source value; struct fields
 ///   are accessed as `#source_var.#field`.
@@ -42,22 +42,22 @@ pub struct TransformResult {
 ///   variants), and the expression that accesses it on the source value.
 pub fn generate_transform(
     derive_input: &DeriveInput,
-    pattern_type: impl ToTokens,
-    construct_type: impl ToTokens,
+    source_type: impl ToTokens,
+    target_type: impl ToTokens,
     source_var: impl ToTokens,
     mut transform_field: impl FnMut(&Field, &Ident, TokenStream) -> syn::Result<FieldTransform>,
 ) -> syn::Result<TransformResult> {
     match &derive_input.data {
         Data::Struct(input_struct) => generate_transform_for_struct(
             input_struct,
-            construct_type,
+            target_type,
             source_var,
             &mut transform_field,
         ),
         Data::Enum(input_enum) => generate_transform_for_enum(
             input_enum,
-            pattern_type,
-            construct_type,
+            source_type,
+            target_type,
             source_var,
             &mut transform_field,
         ),
@@ -122,8 +122,8 @@ fn generate_transform_for_struct(
 
 fn generate_transform_for_enum(
     input_enum: &DataEnum,
-    pattern_type: impl ToTokens,
-    construct_type: impl ToTokens,
+    source_type: impl ToTokens,
+    target_type: impl ToTokens,
     source_var: impl ToTokens,
     transform_field: &mut impl FnMut(&Field, &Ident, TokenStream) -> syn::Result<FieldTransform>,
 ) -> syn::Result<TransformResult> {
@@ -133,7 +133,7 @@ fn generate_transform_for_enum(
         let variant_ident = &variant.ident;
         let (variant_conversion, mut variant_extra_items) = match &variant.fields {
             Fields::Unit => (
-                quote!(#pattern_type::#variant_ident => #construct_type::#variant_ident),
+                quote!(#source_type::#variant_ident => #target_type::#variant_ident),
                 Vec::new(),
             ),
             Fields::Unnamed(FieldsUnnamed { unnamed, .. }) => {
@@ -156,7 +156,7 @@ fn generate_transform_for_enum(
                     .collect::<syn::Result<FieldResults>>()?;
                 (
                     quote! {
-                        #pattern_type::#variant_ident( #(#bound_idents),* ) => #construct_type::#variant_ident( #(#field_conversions),* )
+                        #source_type::#variant_ident( #(#bound_idents),* ) => #target_type::#variant_ident( #(#field_conversions),* )
                     },
                     extra_items,
                 )
@@ -175,7 +175,7 @@ fn generate_transform_for_enum(
                     .collect::<syn::Result<FieldResults>>()?;
                 (
                     quote! {
-                        #pattern_type::#variant_ident { #(#bound_idents),* } => #construct_type::#variant_ident { #(#field_conversions),* }
+                        #source_type::#variant_ident { #(#bound_idents),* } => #target_type::#variant_ident { #(#field_conversions),* }
                     },
                     extra_items,
                 )

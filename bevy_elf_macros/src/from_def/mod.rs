@@ -19,6 +19,7 @@ use crate::CratePath;
 use crate::ELF_MODULE_PATH;
 use crate::bevy_asset_mod_path;
 use crate::is_self;
+use crate::spec::ParsedResolveStrategy;
 
 pub fn from_def_impl(input: DeriveInput) -> Result<TokenStream, syn::Error> {
     let elf_crate_path = CratePath::try_from(ELF_MODULE_PATH)?;
@@ -242,11 +243,6 @@ impl FieldElfAttr {
                 span,
                 "Empty `elf` attribute not allowed. Expected at least one of `from_default`, `default`, `implicit`, `with_spec`, `on_def` or `with_resolver`",
             ))
-        } else if *implicit && spec.as_ref().is_some_and(|spec| spec.extension.is_none()) {
-            Err(syn::Error::new_spanned(
-                span,
-                "expected `extension` on implicit field",
-            ))
         } else if spec.is_some() && resolver.is_some() {
             Err(syn::Error::new_spanned(
                 span,
@@ -338,33 +334,29 @@ impl Parse for FieldElfAttr {
 
 pub struct FieldSpec {
     pub path_kind: PathKind,
-    pub extension: Option<LitStr>,
+    pub strategy: ParsedResolveStrategy,
 }
 
 impl Debug for FieldSpec {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        if let Some(ref extension) = self.extension {
-            write!(
-                f,
-                "({:?}, extension = \"{}\")",
-                self.path_kind,
-                extension.value()
-            )
-        } else {
-            write!(f, "({:?})", self.path_kind)
-        }
+        write!(
+            f,
+            "({:?}, resolve_strategy = \"{}\")",
+            self.path_kind,
+            self.strategy.to_token_stream()
+        )
     }
 }
 
 pub struct ParsedFieldSpec {
     pub path_kind: Option<PathKind>,
-    pub extension: Option<LitStr>,
+    pub resolve_strategy: ParsedResolveStrategy,
 }
 
 impl Parse for ParsedFieldSpec {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut path_kind: Option<PathKind> = None;
-        let mut extension: Option<LitStr> = None;
+        let mut resolve_strategy: Option<ParsedResolveStrategy> = None;
 
         while !input.is_empty() {
             let ident: Ident = input.parse()?;
@@ -385,15 +377,15 @@ impl Parse for ParsedFieldSpec {
                     };
                     path_kind = Some(PathKind::Child(path));
                 }
-                "extension" => {
+                "resolve_strategy" => {
                     input.parse::<Token![=]>()?;
-                    let lit: LitStr = input.parse()?;
-                    extension = Some(lit);
+                    let strategy: ParsedResolveStrategy = input.parse()?;
+                    resolve_strategy = Some(strategy);
                 }
                 _ => {
                     return Err(syn::Error::new(
                         ident.span(),
-                        "Unknown parameter. Expected `base_path`, or `extension`",
+                        "Unknown parameter. Expected `base_path`, or `resolve_strategy`",
                     ));
                 }
             }
@@ -405,7 +397,7 @@ impl Parse for ParsedFieldSpec {
 
         Ok(Self {
             path_kind,
-            extension,
+            resolve_strategy: resolve_strategy.unwrap_or_default(),
         })
     }
 }
@@ -421,7 +413,7 @@ impl ParsedFieldSpec {
 
         Ok(FieldSpec {
             path_kind,
-            extension: self.extension,
+            strategy: self.resolve_strategy,
         })
     }
 }

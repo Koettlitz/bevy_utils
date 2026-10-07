@@ -3,6 +3,7 @@ resolver = "3"
 members = [
     "bevy_elf_macros",
     "bevy_elf",
+    "bevy_elf_core",
     "bevy_entity_lookup",
     "elf_macro_utils",
     "bevy_entity_lookup_macros",
