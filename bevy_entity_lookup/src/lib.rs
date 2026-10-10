@@ -94,7 +94,7 @@ impl Plugin for EntityLookupPlugin {
 }
 
 fn on_entity_id_added(
-    event: On<Add, EntityId>,
+    event: On<Add<EntityId>>,
     mut lookup: ResMut<LookupMap>,
     query: Query<&EntityId>,
 ) -> Result {
@@ -105,7 +105,7 @@ fn on_entity_id_added(
 }
 
 fn on_entity_id_removed(
-    event: On<Remove, EntityId>,
+    event: On<Remove<EntityId>>,
     ids: Query<&EntityId>,
     mut lookup_map: ResMut<LookupMap>,
 ) {

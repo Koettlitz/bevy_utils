@@ -77,10 +77,12 @@ from_def_types!(
     feature = "math",
     use bevy_math,
     types = [
-        BVec2, BVec3, BVec3A, BVec4, BVec4A, EulerRot, IRect, IVec2, IVec3, IVec4, Isometry2d,
-        Isometry3d, Mat2, Mat3, Mat3A, Mat4, Quat, Ray2d, Ray3d, Rect, Rot2, URect, UVec2, UVec3,
-        UVec4, Vec2, Vec3, Vec3A, Vec4,
-    ]
+        Affine2, Affine3, Affine3A, BVec2, BVec3, BVec4,
+        DAffine2, DAffine3, DMat2, DMat3, DMat4, DQuat, DVec2, DVec3, DVec4,
+        Dir2, Dir3, Dir4, Dir3A,
+        IRect, IVec2, IVec3, IVec4, Isometry2d, Isometry3d, Mat2, Mat3, Mat4, Mat3A,
+        Quat, Rect, Rot2,
+        URect, UVec2, UVec3, UVec4, Vec2, Vec3, Vec4, Vec3A ]
 );
 
 from_def_types!(
