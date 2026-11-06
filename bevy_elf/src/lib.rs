@@ -17,7 +17,7 @@
 //!         secs: 0,
 //!         nanos: 128000000,
 //!     ),
-//!     spritesheet: "water",
+//!     spritesheet: "water.ron",
 //! )
 //! ```
 //! The corresponding struct would look something like this:
@@ -37,7 +37,7 @@
 //! The [`derive@FromDef`] derive macro generates a (de)serializable version of the struct as well as an
 //! implementation of the [`trait@FromDef`] trait, which converts it into your struct. The generated
 //! struct looks something like this:
-//! ```ignore
+//! ```
 //! # use std::time::Duration;
 //! # use serde::{Serialize, Deserialize};
 //! #[derive(Serialize, Deserialize)]
@@ -57,31 +57,33 @@
 //! ```
 //! To resolve the string names into handles some metadata needs to be provided. Let's
 //! take the Spritesheet asset as an example:
-//! ```ignore
+//! ```
 //! # use bevy_asset::prelude::*;
+//! # use bevy_reflect::TypePath;
 //! # use bevy_elf::{FromDef, asset_spec};
+//!
 //! #[derive(FromDef, Asset, TypePath)]
-//! #[asset_spec(base_path = "spritesheets", extension = "ron")]
+//! #[asset_spec(base_path = "spritesheets")]
 //! struct Spritesheet { /* fields omitted */ }
 //! ```
 //! With the [`asset_spec`] provided the spritesheet handles inside the `AnimationAsset` can now be
-//! resolved, e.g. the "water" spritesheet gets resolved into "spritesheets/water.ron".
+//! resolved, e.g. the "water.ron" spritesheet gets resolved into "spritesheets/water.ron".
 //!
 //! ## Resolving foreign types with `elf`
 //! Asset types you don't own cannot be annotated with attributes. Let's take a closer look at the
 //! Spritesheet asset:
-//! ```ignore
+//! ```
 //! # use bevy_asset::prelude::*;
 //! # use bevy_elf::{FromDef, asset_spec};
 //! # use bevy_image::{Image, TextureAtlasLayout};
 //! # use bevy_reflect::TypePath;
 //! #[derive(FromDef, Asset, TypePath)]
-//! #[asset_spec(base_path = "spritesheets", extension = "ron")]
+//! #[asset_spec(base_path = "spritesheets")]
 //! struct Spritesheet {
-//!     #[elf(with_spec(base_path = "spritesheets/images", extension = "png"))]
+//!     #[elf(with_spec(base_path = "spritesheets/images"))]
 //!     image: Handle<Image>,
 //!
-//!     #[elf(with_spec(base_path = "spritesheets/layouts", extension = "ron"))]
+//!     #[elf(with_spec(base_path = "spritesheets/layouts"))]
 //!     layout: Handle<TextureAtlasLayout>,
 //! }
 //! ```
@@ -107,53 +109,71 @@
 //!         ├── water.ron
 //!         └── grass.ron
 //! ```
-//! Explicitly mentioning e.g. "water" everywhere is cumbersome. Make it implicit instead. The
+//! Explicitly mentioning e.g. "water.png" everywhere is cumbersome. Make it implicit instead. The
 //! `implicit` flag goes along well with `sub_path`:
-//! ```ignore
+//! ```
 //! # use bevy_asset::prelude::*;
-//! # use bevy_elf::{FromDef, asset_spec};
+//! # use bevy_elf::{FromDef, asset_spec, ResolveStrategy};
 //! # use bevy_image::{Image, TextureAtlasLayout};
 //! # use bevy_reflect::TypePath;
 //! #[derive(FromDef, Asset, TypePath)]
-//! #[asset_spec(base_path = "spritesheets", extension = "ron")]
+//! #[asset_spec(
+//!     base_path = "spritesheets",
+//!     resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ron" }
+//! )]
 //! struct Spritesheet {
-//!     #[elf(implicit, with_spec(sub_path = "images", extension = "png"))]
+//!     #[elf(implicit, with_spec(
+//!         sub_path = "images",
+//!         resolve_strategy = ResolveStrategy::FileStemIsId { extension: "png" }
+//!     ))]
 //!     image: Handle<Image>,
 //!
-//!     #[elf(implicit, with_spec(sub_path = "layouts", extension = "ron"))]
+//!     #[elf(implicit, with_spec(
+//!         sub_path = "layouts",
+//!         resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ron" }
+//!     ))]
 //!     layout: Handle<TextureAtlasLayout>,
 //! }
 //! ```
 //! That way the `image` and `layout` fields are omitted in the generated def type and don't show up
-//! in the ron file at all. They are resolved with the same string name as their parent.
+//! in the ron file at all. They are resolved with the same string name as their parent. Since the
+//! parent has another file ending the image ("water.png") could not be resolved by e.g. "water.ron".
+//! That's why we need to change the default `ResolveStrategy` from `FileNameIsId` to `FileStemIsId`.
 //!
 //! ## Omitting empty def files
 //! With the fields being implicit the spritesheet ron files are now empty. Having to put an empty
 //! file there for it all to work isn't nice at all! To omit the whole file tell `bevy_elf` to omit
 //! the def type entirely and use `()` instead. Just tell the referencing `AnimationAsset` to not
 //! load any file but put a default value into [`FromDef::from_def()`] instead:
-//! ```ignore
+//! ```
 //! # use bevy_asset::prelude::*;
 //! # use std::time::Duration;
-//! # use bevy_elf::FromDef;
+//! # use bevy_elf::{FromDef, ResolveStrategy};
 //! # use bevy_image::{Image, TextureAtlasLayout};
 //! # use bevy_reflect::TypePath;
+//!
 //! #[derive(FromDef, Asset, TypePath)]
 //! struct AnimationAsset {
 //!     frames: Vec<usize>,
 //!     frame_duration: Duration,
 //!
 //!     #[elf(from_default)]
-//!     spritesheet: Handle<Spritesheet>,
+//!     spritesheet: Spritesheet,
 //! }
 //!
 //! #[derive(FromDef)]
 //! #[elf(def_type(()))]
 //! struct Spritesheet {
-//!     #[elf(implicit, with_spec(base_path = "images", extension = "png"))]
+//!     #[elf(implicit, with_spec(
+//!         base_path = "images",
+//!         resolve_strategy = ResolveStrategy::FileStemIsId { extension: "png" }
+//!     ))]
 //!     image: Handle<Image>,
 //!
-//!     #[elf(implicit, with_spec(base_path = "layouts", extension = "ron"))]
+//!     #[elf(implicit, with_spec(
+//!         base_path = "layouts",
+//!         resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ron" }
+//!     ))]
 //!     layout: Handle<TextureAtlasLayout>,
 //! }
 //! ```
@@ -217,14 +237,16 @@ pub use bevy_elf_core::*;
 /// It is possible to influence resolution and def type generation by using the
 /// `#[elf(...)]` attribute on the fields directly:
 ///
-/// - `#[elf(with_spec(base_path = "base/path", extension = "ron"))]`<br>
+/// - `#[elf(with_spec(base_path = "base/path", resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ron" }))]`<br>
 ///   overrides the [`asset_spec`] of the field's type (if it has one) used for resolution.
 ///   This is only relevant for types like [`Handle`] or [`AssetRef`].
-///   The optional extension parameter is used for suffixing the file extension to the id, so in the ron file
-///   writing just "water" is enough to reference something at `assets/tiles/water.ron`. If there
-///   are multiple possible extensions for the same asset type (e.g. png and jpg)
-///   omit the extension parameter in the `#[elf(with_spec(...))]`, but then you have to specify
-///   the extension in the ron file, e.g. "water.png".
+///   The optional `resolve_strategy` parameter tell bevy_elf how to resolve the asset from its id.
+///   The default is `ResolveStrategy::FileNameIsId`, which assumes the id is the whole file name
+///   including the file extension. That means you have to reference the asset with the extension e.g. "water.png".
+///   If you use `ResolveStrategy::FileStemIsId` the file extension does not belong to the id, so
+///   you need to provide it so bevy_elf can resolve the id to an `AssetPath` by concatenating the
+///   extension to the end of it. That way you can reference assets without the extension e.g.
+///   "water".
 ///
 /// - `#[elf(with_spec(sub_path = "foo"))]`<br>
 ///   can be used as an alternative to specifying a `base_path` to make the field resolve relative
@@ -263,15 +285,28 @@ pub use bevy_elf_core::*;
 ///   on a field to generate a function on the type containing the field
 ///   which exposes the resolver. The name is derived from the field name (e.g.
 ///   `MyAsset::foo_resolver()` for the field `foo`).
+///   If the resolution is specified via `sub_path`, the generated function takes the `base_path`
+///   as a parameter to make the `sub_path` resolution work.
 ///
 /// # Example
-/// ```ignore
+/// ```
+/// # use bevy_elf::{ FromDef, ResolveStrategy };
+/// # use bevy_asset::prelude::*;
+/// # use bevy_reflect::TypePath;
+/// # use bevy_image::{ Image, TextureAtlasLayout };
+///
 /// #[derive(FromDef, Asset, TypePath)]
 /// struct Spritesheet {
-///     #[elf(implicit, with_spec(sub_path = "image", extension = "png"))]
+///     #[elf(implicit, with_spec(
+///         sub_path = "image",
+///         resolve_strategy = ResolveStrategy::FileStemIsId { extension: "png" }
+///     ))]
 ///     image: Handle<Image>,
 ///
-///     #[elf(implicit, with_spec(sub_path = "layout", extension = "tl.ron"))]
+///     #[elf(implicit, with_spec(
+///         sub_path = "layout",
+///         resolve_strategy = ResolveStrategy::FileStemIsId { extension: "tl.ron" }
+///     ))]
 ///     spritesheet_layout: Handle<TextureAtlasLayout>,
 ///     kind: SpritesheetKind,
 /// }
@@ -280,11 +315,19 @@ pub use bevy_elf_core::*;
 /// enum SpritesheetKind {
 ///     Static(usize),
 ///     Animated(
-///         #[elf(with_spec(base_path = "animations", extension = "ani.ron"))]
+///         #[elf(with_spec(
+///             base_path = "animations",
+///             resolve_strategy = ResolveStrategy::FileStemIsId { extension: "ani.ron" }
+///         ))]
 ///         Handle<SpriteAnimationAsset>,
 ///     ),
 /// }
+///
+/// #[derive(FromDef, Asset, TypePath)]
+/// struct SpriteAnimationAsset { /* fields omitted */ }
 /// ```
+extern crate self as bevy_elf;
+
 #[cfg(feature = "macros")]
 pub use bevy_elf_macros::FromDef;
 
@@ -304,8 +347,14 @@ impl AppExt for App {
     /// Registers the asset type `A` and a [`RonAssetLoader<A>`]
     /// This is equivalent to calling
     /// ```ignore
-    /// app.init_asset::<A>()
+    /// # use bevy_app::prelude::*;
+    /// # use bevy_asset::prelude::*;
+    /// # use bevy_reflect::TypePath;
+    /// # use bevy_elf::{RonAssetLoader, FromDef};
+    ///
+    /// App::new().init_asset::<A>()
     ///    .init_asset_loader::<RonAssetLoader<A>>();
+    //et;
     /// ```
     /// Note that the asset type `A` has to implement [`Asset`] and [`FromDef`].
     fn init_ron_asset<A: Asset + FromDef>(&mut self) -> &mut Self {

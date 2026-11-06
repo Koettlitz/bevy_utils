@@ -3,7 +3,9 @@ use std::ops;
 // bevy_macro_mirror/src/lib.rs
 use proc_macro_crate::{FoundCrate, crate_name};
 use quote::ToTokens;
-use syn::{Ident, spanned::Spanned};
+use syn::{Ident, Token, spanned::Spanned};
+
+extern crate self as elf_macro_utils;
 
 pub use mirror_generation::generate_mirror_type;
 pub use mirror_transform::*;
@@ -31,27 +33,31 @@ impl TryFrom<syn::Path> for CratePath {
     type Error = syn::Error;
 
     fn try_from(mut path: syn::Path) -> Result<Self, Self::Error> {
-        let first_segment = match path.segments.first_mut() {
-            Some(segment) => segment,
-            None => {
-                return Err(syn::Error::new(
-                    path.span(),
-                    "wtf is this? Comon man! Don't gimme that empty syn::Path abomination! I can't...",
-                ));
-            }
+        let path_span = path.span();
+        let Some(first_segment) = path.segments.first_mut() else {
+            return Err(syn::Error::new(path_span, "empty path"));
         };
         let crate_string = first_segment.ident.to_string();
         let span = first_segment.ident.span();
-        first_segment.ident = match crate_name(&crate_string) {
-            Ok(FoundCrate::Itself) => Ident::new("crate", span),
-            Ok(FoundCrate::Name(name)) => Ident::new(&name, span),
+
+        match crate_name(&crate_string) {
+            Ok(FoundCrate::Itself) => {
+                // Examples, doctests and integration tests are compiled as
+                // separate crates, so `crate::` would be wrong there. Name the
+                // crate explicitly; the lib resolves it via
+                // `extern crate self as <name>;`.
+                path.leading_colon.get_or_insert_with(|| Token![::](span));
+            }
+            Ok(FoundCrate::Name(name)) => {
+                first_segment.ident = Ident::new(&name, span);
+            }
             Err(e) => {
                 return Err(syn::Error::new(
                     span,
                     format!("could not resolve crate `{crate_string}`: {e}"),
                 ));
             }
-        };
+        }
         Ok(Self(path))
     }
 }

@@ -6,6 +6,8 @@ use bevy_ecs::prelude::*;
 use bevy_elf::FromDef;
 use thiserror::Error;
 
+extern crate self as bevy_entity_lookup;
+
 mod impls;
 
 pub use bevy_entity_lookup_macros::Lookup;

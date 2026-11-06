@@ -15,6 +15,8 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 
+extern crate self as bevy_event_cascade;
+
 type Phantom<T> = PhantomData<fn() -> T>;
 
 #[derive(Component)]

@@ -14,6 +14,8 @@ use serde::Deserialize;
 use serde::de::DeserializeOwned;
 use thiserror::Error;
 
+extern crate self as bevy_elf_core;
+
 mod from_def_impls;
 
 type Phantom<L> = PhantomData<fn() -> L>;
@@ -109,16 +111,21 @@ pub trait AssetPathSpec {
     const RESOLVE_STRATEGY: ResolveStrategy;
 }
 
+/// Tells bevy_elf how to resolve an `AssetPath` from the id and the provided base_path.
 #[derive(Default, Debug, Clone, Copy, Deserialize)]
 pub enum ResolveStrategy {
+    /// Assumes that the whole file name is the id, so assets need to be referenced including their
+    /// file extension, e.g. "water.png".
     #[default]
     FileNameIsId,
-    FileStemIsId {
-        extension: &'static str,
-    },
-    DirectoryNameIsId {
-        file_name: &'static str,
-    },
+
+    /// Assumes that the id is the file name making the extension implicit, so assets can be referenced by
+    /// only the file stem, leaving the provided extension out, e.g. "water".
+    FileStemIsId { extension: &'static str },
+
+    /// Assumes that the id is the name of the directory containing the actual asset file. The
+    /// directory must contain the asset file with the provided `file_name`.
+    DirectoryNameIsId { file_name: &'static str },
 }
 
 /// An adapter type, that implements [`AssetResolver`] by using an [`AssetPathSpec`] (`S`).

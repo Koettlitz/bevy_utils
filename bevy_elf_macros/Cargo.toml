@@ -3,7 +3,7 @@ name = "bevy_elf_macros"
 version = "0.1.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/Koettlitz/elf"
+repository = "https://github.com/Koettlitz/bevy_utils"
 description = "Derive macros for bevy_elf"
 
 [lib]
@@ -15,7 +15,7 @@ syn = { workspace = true, features = [ "full", "extra-traits" ] }
 quote = { workspace = true } 
 proc-macro2 = { workspace = true } 
 proc-macro-crate = "3"
-elf-macro-utils = { path = "../elf_macro_utils" }
+elf_macro_utils = { path = "../elf_macro_utils" }
 
 [dev-dependencies]
 bevy_elf = { path = "../bevy_elf" }

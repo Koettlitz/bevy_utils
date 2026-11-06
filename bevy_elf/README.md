@@ -18,7 +18,7 @@ resolving each string into a `Handle` by using bevy's `LoadContext::load()` alon
 (
     frames: [1, 2, 3],
     frame_duration: (secs: 0, nanos: 128000000),
-    spritesheet: "water",
+    spritesheet: "water.png",
 )
 ```
 
@@ -37,12 +37,12 @@ struct AnimationAsset {
 }
 
 #[derive(FromDef, Asset, TypePath)]
-#[asset_spec(base_path = "spritesheets", extension = "ron")]
+#[asset_spec(base_path = "spritesheets")]
 struct Spritesheet {
-    #[elf(with_spec(base_path = "spritesheets/images", extension = "png"))]
+    #[elf(with_spec(base_path = "spritesheets/images"))]
     image: Handle<Image>,
 
-    #[elf(with_spec(base_path = "spritesheets/layouts", extension = "ron"))]
+    #[elf(with_spec(base_path = "spritesheets/layouts"))]
     layout: Handle<TextureAtlasLayout>,
 }
 
@@ -84,15 +84,17 @@ control over the conversion.
 
 Implicit fields, omitting empty def files, and resolving foreign types (types you don't own,
 like `Handle<Image>`) are covered in the [crate documentation](https://docs.rs/bevy_elf).
+There is a full example in the examples folder, which can be run via `cargo run --example animation --features="image"`.
 
 ## Bevy compatibility
 
 | bevy   | bevy_elf |
 |--------|----------|
 | 0.19   | 0.1      |
+| 0.20   | 0.2      |
 
 ## License
 
-Dual-licensed under either [MIT](https://github.com/Koettlitz/elf/blob/master/LICENSE-MIT) or
-[Apache License, Version 2.0](https://github.com/Koettlitz/elf/blob/master/LICENSE-APACHE) at
+Dual-licensed under either [MIT](https://github.com/Koettlitz/bevy_utils/blob/master/LICENSE-MIT) or
+[Apache License, Version 2.0](https://github.com/Koettlitz/bevy_utils/blob/master/LICENSE-APACHE) at
 your option.

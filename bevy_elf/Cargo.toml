@@ -2,7 +2,7 @@
 name = "bevy_elf"
 version = "0.1.0"
 edition = "2024"
-repository = "https://github.com/Koettlitz/elf"
+repository = "https://github.com/Koettlitz/bevy_utils"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 description = "Serializable Bevy asset definitions that resolve string references into Handles"
@@ -15,6 +15,10 @@ macros = ["dep:bevy_elf_macros"]
 app = ["dep:bevy_app", "bevy_elf_core/app"]
 math = ["dep:bevy_math", "bevy_elf_core/math"]
 image = ["dep:bevy_image", "bevy_elf_core/image"]
+
+[[example]]
+name = "animation"
+required-features = ["image"]
 
 [dependencies]
 bevy_elf_macros = { optional = true, path = "../bevy_elf_macros"}
@@ -29,6 +33,4 @@ ron = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
-bevy_app = { workspace = true } 
-bevy_asset = { workspace = true }
-bevy_image = { workspace = true }
+bevy = { workspace = true }

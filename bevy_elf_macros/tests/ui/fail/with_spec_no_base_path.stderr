@@ -1,5 +1,5 @@
-error: either `base_path = "base/path"` or `sub_path [= "sub/path"]` is required
- --> tests/ui/fail/with_spec_no_base_path.rs:7:11
+error: Unknown parameter. Expected `base_path`, or `resolve_strategy`
+ --> tests/ui/fail/with_spec_no_base_path.rs:7:21
   |
 7 |     #[elf(with_spec(extension = "ron"))]
-  |           ^^^^^^^^^
+  |                     ^^^^^^^^^
