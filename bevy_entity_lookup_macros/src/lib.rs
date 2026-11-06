@@ -3,6 +3,8 @@ use syn::{DeriveInput, parse_macro_input};
 
 use entity_lookup::lookup_impl;
 
+extern crate self as bevy_entity_lookup_macros;
+
 mod entity_lookup;
 
 #[proc_macro_derive(Lookup, attributes(elf))]

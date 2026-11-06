@@ -22,6 +22,7 @@ bevy_asset = "0.20"
 bevy_reflect = "0.20"
 bevy_image = "0.20"
 bevy_math = "0.20"
+bevy = { version = "0.20", features = ["debug", "serialize"] }    
 serde = "1.0"
 ron = "0.12"
 thiserror = "2.0"

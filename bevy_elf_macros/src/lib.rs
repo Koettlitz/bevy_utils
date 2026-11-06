@@ -11,6 +11,8 @@ use syn::{DeriveInput, Ident, Item, ItemEnum, ItemStruct, TypePath, parse_macro_
 
 use crate::{from_def::from_def_impl, spec::SpecArgs};
 
+extern crate self as bevy_elf_macros;
+
 mod from_def;
 mod spec;
 
