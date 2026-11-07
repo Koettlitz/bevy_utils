@@ -1,6 +1,6 @@
 [package]
 name = "bevy_elf"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 repository = "https://github.com/Koettlitz/bevy_utils"
 license = "MIT OR Apache-2.0"
@@ -21,8 +21,8 @@ name = "animation"
 required-features = ["image"]
 
 [dependencies]
-bevy_elf_macros = { optional = true, path = "../bevy_elf_macros"}
-bevy_elf_core = { path = "../bevy_elf_core" }
+bevy_elf_macros = { optional = true, path = "../bevy_elf_macros", version = "=0.2.0" }
+bevy_elf_core = { path = "../bevy_elf_core", version = "=0.1.0" }
 bevy_asset = { workspace = true } 
 bevy_app = { workspace = true, optional = true }
 bevy_reflect = { workspace = true }
